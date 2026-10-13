@@ -81,6 +81,7 @@ contract RiderMarketTest is Fixture {
         RiderMarket.Params memory p = _wide();
         vm.prank(owner);
         RiderMarket wide = factory.createMarket(pool, p);
+        _waitOutNotice();
         _buy(vaultMarket, alice, 50_000e6, 30 days);
         _buy(pegMarket, bob, 45_000e6, 30 days);
         uint256 free = pool.freeAssets();
@@ -124,7 +125,7 @@ contract RiderMarketTest is Fixture {
         pool.setSalesPaused(address(vaultMarket), true);
         vm.startPrank(alice);
         usdc.approve(address(vaultMarket), type(uint256).max);
-        vm.expectRevert(RiderMarket.SalesPaused.selector);
+        vm.expectRevert(RiderMarket.SalesClosed.selector);
         vaultMarket.buyCover(1_000e6, 30 days, alice, type(uint256).max);
         vm.stopPrank();
     }
@@ -157,6 +158,7 @@ contract RiderMarketTest is Fixture {
         p.restrictedBuyer = keeper;
         vm.prank(owner);
         RiderMarket drill = factory.createMarket(pool, p);
+        _waitOutNotice();
         vm.startPrank(alice);
         usdc.approve(address(drill), type(uint256).max);
         vm.expectRevert(abi.encodeWithSelector(RiderMarket.BuyerNotAllowed.selector, alice));
@@ -355,7 +357,7 @@ contract RiderMarketTest is Fixture {
         vaultMarket.claim(id);
     }
 
-    function test_incident_rearmRefusedWhileStillFiring() public {
+    function test_incident_rearmMeasuresFromTheCurrentReading() public {
         _buy(pegMarket, alice, 1_000e6, 30 days);
         tokenFeed.set(1.0e8);
         pegMarket.openIncident();
@@ -367,8 +369,104 @@ contract RiderMarketTest is Fixture {
         tokenFeed.set(1.0e8);
         pegFeed.set(1.1183e8);
         pegMarket.settle();
-        vm.expectRevert();
+        // Cover sold after an incident covers further losses from the current level, not the old peg.
         pegMarket.rearm();
+        assertApproxEqAbs(pegMarket.refHigh(), uint256(1.0e8) * 1e18 / 1.1183e8, 1);
+        (bool ok, uint256 loss,, bool firing) = pegMarket.health();
+        assertTrue(ok);
+        assertEq(loss, 0);
+        assertFalse(firing);
+    }
+
+    function test_rearm_refusedWhileDataUnavailable() public {
+        _buy(vaultMarket, alice, 1_000e6, 30 days);
+        _triggerVault(1_000);
+        vm.warp(block.timestamp + 7 days + 1);
+        vaultMarket.settle();
+        vm.mockCallRevert(address(canary), abi.encodeWithSignature("convertToAssets(uint256)"), "down");
+        vm.expectRevert();
+        vaultMarket.rearm();
+    }
+
+    // ─────────────────────────────────────────────────────────────── audit regressions
+
+    function test_audit_newMarketWaitsOutTheNoticePeriod() public {
+        RiderMarket.Params memory p = _wide();
+        vm.prank(owner);
+        RiderMarket late = factory.createMarket(pool, p);
+        assertFalse(pool.salesOpen(address(late)), "underwriters already in: the new risk must wait");
+        vm.startPrank(alice);
+        usdc.approve(address(late), type(uint256).max);
+        vm.expectRevert(RiderMarket.SalesClosed.selector);
+        late.buyCover(1_000e6, 30 days, alice, type(uint256).max);
+        vm.stopPrank();
+        // An underwriter who objects has time to leave: notice is longer than the exit cooldown.
+        assertGt(pool.marketDelay(), pool.cooldown());
+        _waitOutNotice();
+        assertTrue(pool.salesOpen(address(late)));
+        _buy(late, alice, 1_000e6, 30 days);
+    }
+
+    function test_audit_poolFreezesAsSoonAsATriggerFires() public {
+        _buy(vaultMarket, alice, 1_000e6, 30 days);
+        vm.prank(lp);
+        pool.requestRedeem(1_000e12, lp, lp);
+        vm.warp(block.timestamp + COOLDOWN);
+        tokenFeed.set(tokenFeed.answer());
+        pegFeed.set(pegFeed.answer());
+        vm.prank(operator);
+        canary.impair(2_000);
+        // Nobody has opened the incident yet, but the loss is visible: no exits, no deposits.
+        assertEq(uint8(vaultMarket.status()), uint8(RiderMarket.Status.Active));
+        assertTrue(pool.frozen());
+        assertEq(pool.maxRedeem(lp), 0);
+        assertEq(pool.maxDeposit(bob), 0);
+    }
+
+    function test_audit_claimManyNotBlockedByOneBlocklistedHolder() public {
+        uint256 a = _buy(vaultMarket, alice, 1_000e6, 30 days);
+        uint256 b = _buy(vaultMarket, bob, 3_000e6, 30 days);
+        _triggerVault(1_000);
+        usdc.setBlocked(alice, true);
+        uint256[] memory ids = new uint256[](2);
+        ids[0] = a;
+        ids[1] = b;
+        uint256 total = vaultMarket.claimMany(ids);
+        assertApproxEqAbs(total, 300e6, 1e6, "bob is paid");
+        assertFalse(vaultMarket.policy(a).claimed, "alice stays claimable for later");
+        assertTrue(vaultMarket.policy(b).claimed);
+        assertEq(vaultMarket.policy(b).paid, total);
+        usdc.setBlocked(alice, false);
+        assertGt(vaultMarket.claim(a), 0);
+    }
+
+    function test_audit_marketNamesAreSanitised() public {
+        RiderMarket.Params memory p = _wide();
+        p.name = "x\"><script>";
+        vm.prank(owner);
+        vm.expectRevert(RiderMarket.BadName.selector);
+        factory.createMarket(pool, p);
+    }
+
+    function test_audit_windowsMustBeNonZero() public {
+        RiderMarket.Params memory p = _wide();
+        p.confirmDelay = 0;
+        vm.prank(owner);
+        vm.expectRevert(bytes("windows"));
+        factory.createMarket(pool, p);
+    }
+
+    function test_audit_paidAmountSurvivesALaterIncident() public {
+        uint256 id = _buy(vaultMarket, alice, 1_000e6, 30 days);
+        _triggerVault(1_000);
+        uint256 paid = vaultMarket.claim(id);
+        vm.warp(block.timestamp + 7 days + 1);
+        vaultMarket.settle();
+        vaultMarket.rearm();
+        _buy(vaultMarket, bob, 1_000e6, 30 days);
+        _triggerVault(4_000);
+        (,,,,,,, uint256 shown) = vaultMarket.policyCard(id);
+        assertEq(shown, paid);
     }
 
     // ─────────────────────────────────────────────────────────────── premium accounting
@@ -429,6 +527,13 @@ contract RiderMarketTest is Fixture {
         uint256 shares = pool.deposit(100_000e6, bob);
         vm.stopPrank();
         assertApproxEqRel(pool.convertToAssets(shares), 100_000e6, 1e12);
+    }
+
+    /// @dev Markets added after underwriters joined wait out the notice period; keep the feeds fresh.
+    function _waitOutNotice() internal {
+        vm.warp(block.timestamp + MARKET_DELAY);
+        tokenFeed.set(tokenFeed.answer());
+        pegFeed.set(pegFeed.answer());
     }
 
     function _wide() internal returns (RiderMarket.Params memory p) {

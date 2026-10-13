@@ -550,6 +550,11 @@ export const riderMarketAbi = [
             "name": "ref",
             "type": "uint256",
             "internalType": "uint256"
+          },
+          {
+            "name": "paid",
+            "type": "uint256",
+            "internalType": "uint256"
           }
         ]
       }
@@ -1043,6 +1048,11 @@ export const riderMarketAbi = [
   },
   {
     "type": "error",
+    "name": "BadName",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "BuyerNotAllowed",
     "inputs": [
       {
@@ -1195,7 +1205,7 @@ export const riderMarketAbi = [
   },
   {
     "type": "error",
-    "name": "SalesPaused",
+    "name": "SalesClosed",
     "inputs": []
   },
   {
@@ -1268,6 +1278,16 @@ export const riderPoolAbi = [
         "internalType": "uint256"
       },
       {
+        "name": "marketDelay_",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "restrictedDepositor_",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
         "name": "owner_",
         "type": "address",
         "internalType": "address"
@@ -1294,6 +1314,25 @@ export const riderPoolAbi = [
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "activeFrom",
+    "inputs": [
+      {
+        "name": "market",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -1576,6 +1615,19 @@ export const riderPoolAbi = [
     "outputs": [
       {
         "name": "locked",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "marketDelay",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -1956,6 +2008,38 @@ export const riderPoolAbi = [
   },
   {
     "type": "function",
+    "name": "restrictedDepositor",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "salesOpen",
+    "inputs": [
+      {
+        "name": "market",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "salesPaused",
     "inputs": [
       {
@@ -2259,6 +2343,12 @@ export const riderPoolAbi = [
         "type": "address",
         "indexed": true,
         "internalType": "address"
+      },
+      {
+        "name": "activeFrom",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -2486,6 +2576,17 @@ export const riderPoolAbi = [
     "type": "error",
     "name": "AsyncRedeem",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "DepositorNotAllowed",
+    "inputs": [
+      {
+        "name": "depositor",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -2755,6 +2856,11 @@ export const riderPoolAbi = [
   {
     "type": "error",
     "name": "TooManyMarkets",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroAddress",
     "inputs": []
   },
   {

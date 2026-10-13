@@ -50,7 +50,7 @@ contract ArcMainnetForkTest is Test {
         vm.skip(block.chainid != 5042);
         policy = new RiderPolicy(owner);
         factory = new RiderFactory(policy, owner);
-        pool = new RiderPool(usdc, "Rider USDC", "rUSDC", 3 days, owner);
+        pool = new RiderPool(usdc, "Rider USDC", "rUSDC", 3 days, 4 days, address(0), owner);
         vm.startPrank(owner);
         policy.setRegistrar(address(factory));
         pool.setRegistrar(address(factory));
@@ -60,6 +60,10 @@ contract ArcMainnetForkTest is Test {
         usdc.transfer(lp, 10_000e6);
         usdc.transfer(user, 1_000e6);
         vm.stopPrank();
+    }
+
+    /// @dev Underwriters join after the markets exist, so the markets are live at once.
+    function _underwrite() internal {
         vm.startPrank(lp);
         usdc.approve(address(pool), 10_000e6);
         pool.deposit(10_000e6, lp);
@@ -90,6 +94,7 @@ contract ArcMainnetForkTest is Test {
 
     function test_protectInOneTransaction_viaMulticall3From() public {
         RiderMarket market = _market(new VaultDrawdownTrigger(IERC4626(ArcMainnet.GALAXY_USDC)), "Galaxy USDC");
+        _underwrite();
         IERC4626 vault = IERC4626(ArcMainnet.GALAXY_USDC);
         (uint256 premium,,) = market.quote(100e6, 30 days);
 
@@ -121,6 +126,7 @@ contract ArcMainnetForkTest is Test {
         vm.stopPrank();
 
         RiderMarket market = _market(new VaultDrawdownTrigger(IERC4626(address(canary))), "Canary");
+        _underwrite();
         vm.startPrank(user);
         usdc.approve(address(market), type(uint256).max);
         uint256 id = market.buyCover(50e6, 30 days, user, type(uint256).max);

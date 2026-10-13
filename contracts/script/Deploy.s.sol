@@ -49,8 +49,10 @@ contract Deploy is Script {
 
         RiderPolicy policy = new RiderPolicy(deployer);
         RiderFactory factory = new RiderFactory(policy, deployer);
-        RiderPool pool = new RiderPool(usdc, "Rider USDC Underwriting", "rUSDC", 3 days, deployer);
-        RiderPool drillPool = new RiderPool(usdc, "Rider Drill Pool", "rDRILL", 10 minutes, deployer);
+        // Main pool: 3-day exit cooldown, and any market added later waits 4 days before selling.
+        RiderPool pool = new RiderPool(usdc, "Rider USDC Underwriting", "rUSDC", 3 days, 4 days, address(0), deployer);
+        // Drill pool: only the deployer may underwrite it, because its canary is broken on purpose.
+        RiderPool drillPool = new RiderPool(usdc, "Rider Drill Pool", "rDRILL", 10 minutes, 1 hours, deployer, deployer);
         policy.setRegistrar(address(factory));
         pool.setRegistrar(address(factory));
         drillPool.setRegistrar(address(factory));
@@ -63,14 +65,14 @@ contract Deploy is Script {
         d.galaxyMarket = address(
             factory.createMarket(
                 pool,
-                _live(new VaultDrawdownTrigger(IERC4626(ArcMainnet.GALAXY_USDC)), "Galaxy USDC vault", 100, 150, 600)
+                _live(new VaultDrawdownTrigger(IERC4626(ArcMainnet.GALAXY_USDC)), "Galaxy USDC vault", 100, 150, 600, 1 hours)
             )
         );
         d.keyrockMarket = address(
             factory.createMarket(
                 pool,
                 _live(
-                    new VaultDrawdownTrigger(IERC4626(ArcMainnet.KEYROCK_USDC)), "Keyrock Prime USDC vault", 100, 150, 600
+                    new VaultDrawdownTrigger(IERC4626(ArcMainnet.KEYROCK_USDC)), "Keyrock Prime USDC vault", 100, 150, 600, 1 hours
                 )
             )
         );
@@ -84,7 +86,8 @@ contract Deploy is Script {
                     "EURC peg to the euro",
                     200,
                     100,
-                    400
+                    400,
+                    6 hours
                 )
             )
         );
@@ -98,7 +101,8 @@ contract Deploy is Script {
                     "cirBTC reserve backing",
                     100,
                     100,
-                    400
+                    400,
+                    6 hours
                 )
             )
         );
@@ -131,11 +135,17 @@ contract Deploy is Script {
         _write(d, deployer, drillOperator);
     }
 
-    function _live(IRiderTrigger trigger, string memory name, uint16 threshold, uint16 baseRate, uint16 slope)
-        internal
-        pure
-        returns (RiderMarket.Params memory)
-    {
+    /// @dev Live markets end policies on day boundaries, which bounds the expiry buckets a market can
+    ///      carry to its 90-day maximum term. Feed-based triggers wait 6 hours to confirm, so a lagging
+    ///      Proof-of-Reserve or cross-rate update cannot confirm a loss on its own.
+    function _live(
+        IRiderTrigger trigger,
+        string memory name,
+        uint16 threshold,
+        uint16 baseRate,
+        uint16 slope,
+        uint32 confirmDelay
+    ) internal pure returns (RiderMarket.Params memory) {
         return RiderMarket.Params({
             trigger: trigger,
             name: name,
@@ -143,9 +153,9 @@ contract Deploy is Script {
             capBps: 5_000,
             baseRateBps: baseRate,
             slopeBps: slope,
-            confirmDelay: 1 hours,
+            confirmDelay: confirmDelay,
             claimWindow: 7 days,
-            epochLength: 1 hours,
+            epochLength: 1 days,
             minDuration: 1 days,
             maxDuration: 90 days,
             minCoverage: 0.1e6,

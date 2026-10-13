@@ -17,7 +17,19 @@ import {IAggregatorV3} from "../../src/interfaces/IAggregatorV3.sol";
 import {IRiderTrigger} from "../../src/interfaces/IRiderTrigger.sol";
 
 contract MockUSDC is ERC20 {
+    mapping(address => bool) public blocked;
+
     constructor() ERC20("USD Coin", "USDC") {}
+
+    /// @dev Mirrors Arc's USDC blocklist: transfers to or from a blocked address revert.
+    function setBlocked(address who, bool b) external {
+        blocked[who] = b;
+    }
+
+    function _update(address from, address to, uint256 value) internal override {
+        require(!blocked[from] && !blocked[to], "blocklisted");
+        super._update(from, to, value);
+    }
 
     function decimals() public pure virtual override returns (uint8) {
         return 6;
@@ -83,6 +95,7 @@ abstract contract Fixture is Test {
     address internal keeper = makeAddr("keeper");
 
     uint256 internal constant COOLDOWN = 3 days;
+    uint256 internal constant MARKET_DELAY = 4 days;
     uint256 internal constant EPOCH = 1 hours;
 
     function setUp() public virtual {
@@ -90,7 +103,7 @@ abstract contract Fixture is Test {
         usdc = new MockUSDC();
         policy = new RiderPolicy(owner);
         factory = new RiderFactory(policy, owner);
-        pool = new RiderPool(IERC20(address(usdc)), "Rider USDC", "rUSDC", COOLDOWN, owner);
+        pool = new RiderPool(IERC20(address(usdc)), "Rider USDC", "rUSDC", COOLDOWN, MARKET_DELAY, address(0), owner);
         vm.startPrank(owner);
         policy.setRegistrar(address(factory));
         pool.setRegistrar(address(factory));

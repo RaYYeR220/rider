@@ -146,6 +146,42 @@ contract RiderPoolTest is Fixture {
         pool.redeem(1e12, spender, spender);
     }
 
+    function test_audit_cannotRestartSomeoneElsesCooldown() public {
+        vm.prank(lp);
+        pool.requestRedeem(1_000e12, lp, lp);
+        vm.warp(block.timestamp + COOLDOWN - 1);
+        // An attacker tops up the victim's request with dust to restart its cooldown.
+        address attacker = makeAddr("attacker");
+        usdc.mint(attacker, 1e6);
+        vm.startPrank(attacker);
+        usdc.approve(address(pool), 1e6);
+        pool.deposit(1e6, attacker);
+        vm.expectRevert(RiderPool.NotAuthorized.selector);
+        pool.requestRedeem(1, lp, attacker);
+        vm.stopPrank();
+        vm.warp(block.timestamp + 1);
+        assertEq(pool.claimableRedeemRequest(0, lp), 1_000e12);
+    }
+
+    function test_audit_fencedPoolRefusesOutsideDeposits() public {
+        RiderPool fenced = new RiderPool(usdc, "Drill", "rDRILL", 10 minutes, 1 hours, owner, owner);
+        vm.startPrank(alice);
+        usdc.approve(address(fenced), 1e6);
+        vm.expectRevert(abi.encodeWithSelector(RiderPool.DepositorNotAllowed.selector, alice));
+        fenced.deposit(1e6, alice);
+        vm.stopPrank();
+        usdc.mint(owner, 1e6);
+        vm.startPrank(owner);
+        usdc.approve(address(fenced), 1e6);
+        fenced.deposit(1e6, owner);
+        vm.stopPrank();
+    }
+
+    function test_audit_noticeMustExceedCooldown() public {
+        vm.expectRevert(bytes("market delay must exceed cooldown"));
+        new RiderPool(usdc, "x", "x", 3 days, 3 days, address(0), owner);
+    }
+
     function test_previewsRevertForAsyncFlows() public {
         vm.expectRevert(RiderPool.AsyncRedeem.selector);
         pool.previewRedeem(1);

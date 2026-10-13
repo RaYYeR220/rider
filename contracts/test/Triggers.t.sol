@@ -45,6 +45,18 @@ contract TriggersTest is Test {
         assertEq(loss, 0, "above peg is not a loss");
     }
 
+    function test_peg_paysOnlyTheSlideSincePurchase() public {
+        MockFeed usdt = new MockFeed(8, 0.985e8);
+        PegTrigger t = new PegTrigger(IAggregatorV3(address(usdt)), IAggregatorV3(address(0)), 26 hours);
+        uint256 ref = t.referenceValue();
+        assertEq(ref, 0.985e18, "bought below peg: the visible discount is not covered");
+        usdt.set(1.01e8);
+        assertEq(t.referenceValue(), 1e18, "reference is capped at the peg");
+        usdt.set(0.97e8);
+        (, uint256 loss,) = t.read(ref);
+        assertEq(loss, 152); // (0.985 - 0.97) / 0.985
+    }
+
     function test_peg_crossRate() public {
         MockFeed eurc = new MockFeed(8, 1.0624e8);
         MockFeed eur = new MockFeed(8, 1.1183e8);
@@ -93,9 +105,33 @@ contract TriggersTest is Test {
         assertFalse(ok);
     }
 
+    function test_reserve_zeroAnswerIsAFeedFault() public {
+        MockBtc cirbtc = new MockBtc();
+        cirbtc.mint(address(1), 1e8);
+        MockFeed por = new MockFeed(8, 0);
+        ReserveTrigger t = new ReserveTrigger(IAggregatorV3(address(por)), IERC20Metadata(address(cirbtc)), 26 hours);
+        (bool ok,,) = t.read(1e18);
+        assertFalse(ok, "zero reserves reads as a fault, not a 100% loss");
+    }
+
+    function test_reserve_paysOnlyTheFallSincePurchase() public {
+        MockBtc cirbtc = new MockBtc();
+        cirbtc.mint(address(1), 1_000e8);
+        MockFeed por = new MockFeed(8, 991e8); // 99.1% backed when cover is bought
+        ReserveTrigger t = new ReserveTrigger(IAggregatorV3(address(por)), IERC20Metadata(address(cirbtc)), 26 hours);
+        uint256 ref = t.referenceValue();
+        assertEq(ref, 0.991e18);
+        por.set(989e8);
+        (, uint256 lossVsPeg,) = t.read(1e18);
+        (, uint256 lossVsEntry, uint256 observed) = t.read(ref);
+        assertEq(lossVsPeg, 110, "the market fires on the 1.1% shortfall");
+        assertEq(lossVsEntry, 20, "but this buyer is paid only for the fall since purchase");
+        assertEq(t.lossOf(ref, observed), 20);
+    }
+
     function test_reserve_zeroSupplyIsHealthy() public {
         MockBtc cirbtc = new MockBtc();
-        MockFeed por = new MockFeed(8, 0);
+        MockFeed por = new MockFeed(8, 1);
         ReserveTrigger t = new ReserveTrigger(IAggregatorV3(address(por)), IERC20Metadata(address(cirbtc)), 26 hours);
         (bool ok, uint256 loss,) = t.read(0);
         assertTrue(ok);
@@ -119,6 +155,24 @@ contract TriggersTest is Test {
         assertEq(loss, 1_234);
         assertEq(t.lossOf(ref, observed), loss);
         assertEq(t.lossOf(observed, observed), 0, "bought after the drop: no loss");
+    }
+
+    function test_vault_totalLossIsClaimable() public {
+        MockUSDC usdc = new MockUSDC();
+        address op = makeAddr("op");
+        CanaryVault v = new CanaryVault(IERC20(address(usdc)), op);
+        usdc.mint(op, 100e6);
+        vm.startPrank(op);
+        usdc.approve(address(v), type(uint256).max);
+        v.deposit(100e6, op);
+        VaultDrawdownTrigger t = new VaultDrawdownTrigger(IERC4626(address(v)));
+        uint256 ref = t.referenceValue();
+        v.impair(10_000);
+        vm.stopPrank();
+        (bool ok, uint256 loss, uint256 observed) = t.read(ref);
+        assertTrue(ok, "a vault worth nothing is a loss, not missing data");
+        assertEq(loss, 10_000);
+        assertEq(observed, 0);
     }
 
     function test_vault_revertingVaultIsUnavailable() public {
