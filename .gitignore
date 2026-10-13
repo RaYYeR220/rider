@@ -1,0 +1,23 @@
+# build
+node_modules/
+.next/
+dist/
+out/
+contracts/out/
+contracts/cache/
+contracts/broadcast/*/*/dry-run/
+coverage/
+*.tsbuildinfo
+
+# env and secrets
+.env
+.env.*
+!.env.example
+.secrets/
+
+# local tooling
+.vercel/
+.playwright-mcp/
+.DS_Store
+*.log
+
