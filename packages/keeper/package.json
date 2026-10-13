@@ -1,0 +1,24 @@
+{
+  "name": "@rider/keeper",
+  "version": "0.1.0",
+  "description": "Permissionless watcher for Rider markets: opens and confirms incidents, pushes claims, settles and rearms.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "rider-keeper": "./src/index.ts"
+  },
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "once": "tsx src/index.ts --once",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@rider/sdk": "workspace:*",
+    "viem": "2.57.5"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  }
+}
