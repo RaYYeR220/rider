@@ -81,19 +81,38 @@ async function execute(calls: Call3[], premium: bigint, coverage: bigint, what: 
     premiumUsdc: formatUsdc(premium),
   };
   if (!signer) return text(unsigned);
-  const verdict = budget.check(premium, coverage);
+  // Reserve first, synchronously: concurrent calls cannot share headroom, and an unknown outcome
+  // stays counted against the budget.
+  const verdict = budget.reserve(premium, coverage);
   if (!verdict.ok) return refuse(`${what} not signed: ${verdict.reason}`);
+  const ticket = verdict.ticket!;
   // The contract has the last word; simulate before spending anything.
   const tx = multicall3FromTx(calls);
   try {
     await client.call({ account: signer.account, to: tx.to, data: tx.data });
   } catch (e) {
+    budget.release(ticket);
     return refuse(`${what} would revert on-chain: ${(e as Error).message.split("\n")[0]}`);
   }
   const hash = await signer.sendTransaction(tx);
   const receipt = await client.waitForTransactionReceipt({ hash });
-  if (receipt.status === "success") budget.record(premium);
+  if (receipt.status === "reverted") budget.release(ticket);
   return text({ signed: true, status: receipt.status, tx: explorerTx(hash), premiumUsdc: formatUsdc(premium) });
+}
+
+/**
+ * Who receives the shares and the policy. When the server signs, it is always the signing wallet:
+ * a tool call (or an injected instruction) must never be able to send the agent's money elsewhere.
+ */
+function resolveHolder(requested: string | undefined): { holder?: Address; error?: string } {
+  if (signer) {
+    if (requested && requested.toLowerCase() !== signer.account.address.toLowerCase()) {
+      return { error: "when the server signs, the holder is always the signing wallet" };
+    }
+    return { holder: signer.account.address };
+  }
+  if (!requested || !isAddress(requested)) return { error: "holder is required when the server is not signing" };
+  return { holder: requested as Address };
 }
 
 const server = new McpServer({ name: "rider", version: "0.1.0" });
@@ -148,13 +167,13 @@ server.registerTool(
     if (!isAddress(vault)) return refuse("vault is not an address");
     const market = await rider.marketForVault(vault, liveMarkets(deployment));
     if (!market) return refuse("no Rider market watches this vault, so it cannot be covered");
-    const to = holder ?? signer?.account.address;
-    if (!to || !isAddress(to)) return refuse("holder is required when the server is not signing");
+    const { holder: to, error } = resolveHolder(holder);
+    if (!to) return refuse(error!);
     const amount = parseUsdc(amount_usdc);
     const duration = BigInt(days * 86_400);
     const q = await rider.quote(market, amount, duration);
     const maxPremium = q.premium + q.premium / 10n + 1n;
-    const calls = protectCalls({ vault, market, amount, coverage: amount, duration, holder: to as Address, maxPremium });
+    const calls = protectCalls({ vault, market, amount, coverage: amount, duration, holder: to, maxPremium });
     return execute(calls, maxPremium, amount, "protected deposit");
   },
 );
@@ -173,13 +192,13 @@ server.registerTool(
   async ({ market, coverage_usdc, days, holder }) => {
     const m = checkMarket(market);
     if (!m) return refuse("unknown market: only the markets returned by list_markets can be bought");
-    const to = holder ?? signer?.account.address;
-    if (!to || !isAddress(to)) return refuse("holder is required when the server is not signing");
+    const { holder: to, error } = resolveHolder(holder);
+    if (!to) return refuse(error!);
     const coverage = parseUsdc(coverage_usdc);
     const duration = BigInt(days * 86_400);
     const q = await rider.quote(m, coverage, duration);
     const maxPremium = q.premium + q.premium / 10n + 1n;
-    return execute(coverCalls(m, coverage, duration, to as Address, maxPremium), maxPremium, coverage, "cover purchase");
+    return execute(coverCalls(m, coverage, duration, to, maxPremium), maxPremium, coverage, "cover purchase");
   },
 );
 

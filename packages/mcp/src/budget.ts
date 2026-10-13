@@ -70,8 +70,28 @@ export class Budget {
     return { ok: true };
   }
 
-  record(premium: bigint) {
-    this.spends.push({ at: this.now(), premium: premium.toString() });
+  /**
+   * Check and, if allowed, count the spend in the same synchronous step, before anything is sent.
+   * Two concurrent purchases therefore cannot both pass on the same headroom, and a purchase whose
+   * outcome is unknown (receipt timeout, crash) stays counted. Call `release` only when the
+   * transaction is known not to have spent anything.
+   */
+  reserve(premium: bigint, coverage: bigint): Verdict & { ticket?: number } {
+    const verdict = this.check(premium, coverage);
+    if (!verdict.ok) return verdict;
+    const at = this.now();
+    this.spends.push({ at, premium: premium.toString() });
+    this.persist();
+    return { ok: true, ticket: this.spends.length - 1 };
+  }
+
+  release(ticket: number) {
+    const spend = this.spends[ticket];
+    if (spend) spend.premium = "0";
+    this.persist();
+  }
+
+  private persist() {
     if (this.file) writeFileSync(this.file, JSON.stringify(this.spends));
   }
 }

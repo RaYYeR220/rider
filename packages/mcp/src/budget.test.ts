@@ -36,11 +36,28 @@ describe("Budget", () => {
   it("enforces the rolling 24h premium total", () => {
     let t = 1_000_000;
     const b = new Budget(limits, undefined, () => t);
-    b.record(50_000n);
-    b.record(40_000n);
+    expect(b.reserve(50_000n, 1n).ok).toBe(true);
+    expect(b.reserve(40_000n, 1n).ok).toBe(true);
     expect(b.check(10_000n, 1n).ok).toBe(true);
     expect(b.check(10_001n, 1n).ok).toBe(false);
     t += 86_400_001;
     expect(b.check(50_000n, 1n).ok).toBe(true);
+  });
+
+  it("reserves synchronously, so concurrent purchases cannot share the same headroom", () => {
+    const b = new Budget(limits);
+    const first = b.reserve(50_000n, 1n);
+    const second = b.reserve(50_000n, 1n);
+    const third = b.reserve(50_000n, 1n);
+    expect(first.ok && second.ok).toBe(true);
+    expect(third.ok).toBe(false);
+  });
+
+  it("keeps a reservation counted unless it is explicitly released", () => {
+    const b = new Budget(limits);
+    const r = b.reserve(50_000n, 1n);
+    expect(b.spentToday()).toBe(50_000n);
+    b.release(r.ticket!);
+    expect(b.spentToday()).toBe(0n);
   });
 });
