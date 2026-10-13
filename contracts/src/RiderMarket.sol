@@ -65,6 +65,7 @@ contract RiderMarket is IRiderMarket, ReentrancyGuardTransient {
         uint64 generation;
         bool claimed;
         uint256 ref;
+        uint256 paid;
     }
 
     struct Incident {
@@ -129,7 +130,8 @@ contract RiderMarket is IRiderMarket, ReentrancyGuardTransient {
     event Rearmed(uint256 indexed generation, uint256 refHigh);
     event RefRaised(uint256 refHigh);
 
-    error SalesPaused();
+    error SalesClosed();
+    error BadName();
     error WrongStatus(Status current);
     error TriggerUnavailable();
     error TriggerFiring(uint256 lossBps);
@@ -153,6 +155,8 @@ contract RiderMarket is IRiderMarket, ReentrancyGuardTransient {
         require(p.capBps > 0 && p.capBps <= BPS, "cap");
         require(p.epochLength > 0 && p.minDuration > 0 && p.minDuration <= p.maxDuration, "duration");
         require(p.minCoverage > 0 && p.minCoverage <= p.maxCoverage, "coverage");
+        require(p.confirmDelay > 0 && p.claimWindow > 0, "windows");
+        _checkName(p.name);
         pool = pool_;
         policyNft = policyNft_;
         asset = IERC20(pool_.asset());
@@ -218,7 +222,8 @@ contract RiderMarket is IRiderMarket, ReentrancyGuardTransient {
             end: uint64(end),
             generation: uint64(generation),
             claimed: false,
-            ref: ref
+            ref: ref,
+            paid: 0
         });
         emit CoverBought(policyId, holder, msg.sender, coverage, premium, block.timestamp, end, ref);
     }
@@ -226,7 +231,8 @@ contract RiderMarket is IRiderMarket, ReentrancyGuardTransient {
     /// @dev Refuses a sale that the market could not stand behind.
     function _checkSaleOpen(uint256 coverage, uint256 duration) private view {
         if (status != Status.Active) revert WrongStatus(status);
-        if (pool.salesPaused(address(this))) revert SalesPaused();
+        // Closed when paused by the owner, and for a new market until its notice period has passed.
+        if (!pool.salesOpen(address(this))) revert SalesClosed();
         if (duration < minDuration || duration > maxDuration) revert DurationOutOfRange(duration);
         if (coverage < minCoverage) revert CoverageBelowMinimum(coverage);
         if (restrictedBuyer != address(0) && msg.sender != restrictedBuyer) revert BuyerNotAllowed(msg.sender);
@@ -332,7 +338,8 @@ contract RiderMarket is IRiderMarket, ReentrancyGuardTransient {
         if (p.coverage == 0) revert UnknownPolicy(policyId);
         if (p.claimed) revert AlreadyClaimed(policyId);
         if (!_eligible(p)) revert NotEligible(policyId);
-        payout = _pay(policyId, p, inc);
+        (bool sent, uint256 amount) = _pay(policyId, p, inc, true);
+        if (sent) payout = amount;
     }
 
     /// @notice Push every eligible claim in `policyIds`; ineligible or already-paid ids are skipped.
@@ -343,7 +350,9 @@ contract RiderMarket is IRiderMarket, ReentrancyGuardTransient {
         for (uint256 i; i < policyIds.length; ++i) {
             Policy storage p = _policies[policyIds[i]];
             if (p.coverage == 0 || p.claimed || !_eligible(p)) continue;
-            total += _pay(policyIds[i], p, inc);
+            // One holder that cannot receive USDC (e.g. blocklisted) must not block everyone else.
+            (bool sent, uint256 amount) = _pay(policyIds[i], p, inc, false);
+            if (sent) total += amount;
         }
     }
 
@@ -386,8 +395,13 @@ contract RiderMarket is IRiderMarket, ReentrancyGuardTransient {
     }
 
     /// @inheritdoc IRiderMarket
+    /// @dev Also true while Active if the trigger is already firing: a loss that anyone can see must
+    ///      not be escapable by underwriters in the gap before someone opens the incident.
     function isFrozen() external view returns (bool) {
-        return status == Status.Pending || status == Status.Triggered;
+        if (status == Status.Pending || status == Status.Triggered) return true;
+        if (status != Status.Active) return false;
+        (bool ok, uint256 loss,) = trigger.read(refHigh);
+        return ok && loss >= thresholdBps;
     }
 
     // ─────────────────────────────────────────────────────────────── views
@@ -445,7 +459,7 @@ contract RiderMarket is IRiderMarket, ReentrancyGuardTransient {
         end = p.end;
         if (p.claimed) {
             state = 3;
-            payout = uint256(p.coverage) * trigger.lossOf(p.ref, _incident.observed) / BPS;
+            payout = p.paid;
         } else if (p.generation < generation) {
             state = 4;
         } else if (status == Status.Triggered && _eligible(p) && block.timestamp <= _incident.claimDeadline) {
@@ -467,15 +481,43 @@ contract RiderMarket is IRiderMarket, ReentrancyGuardTransient {
 
     // ─────────────────────────────────────────────────────────────── internals
 
-    function _pay(uint256 policyId, Policy storage p, Incident storage inc) private returns (uint256 payout) {
+    /// @dev Pays and books one claim. With `strict` a failed transfer reverts; otherwise the policy is
+    ///      left unclaimed so it can be retried on its own.
+    function _pay(uint256 policyId, Policy storage p, Incident storage inc, bool strict)
+        private
+        returns (bool sent, uint256 payout)
+    {
         uint256 loss = trigger.lossOf(p.ref, inc.observed);
         payout = uint256(p.coverage) * loss / BPS;
+        address holder = policyNft.ownerOf(policyId);
+        if (payout > 0) {
+            if (strict) {
+                pool.payout(holder, payout);
+            } else {
+                try pool.payout(holder, payout) {}
+                catch {
+                    return (false, 0);
+                }
+            }
+        }
         p.claimed = true;
+        p.paid = payout;
         inc.claimedCoverage += p.coverage;
         inc.paid += payout;
-        address holder = policyNft.ownerOf(policyId);
-        if (payout > 0) pool.payout(holder, payout);
         emit Claimed(policyId, holder, p.coverage, loss, payout);
+        return (true, payout);
+    }
+
+    /// @dev Market names end up inside NFT metadata (JSON and SVG), so only plain characters are allowed.
+    function _checkName(string memory n) private pure {
+        bytes memory b = bytes(n);
+        if (b.length == 0 || b.length > 48) revert BadName();
+        for (uint256 i; i < b.length; ++i) {
+            bytes1 c = b[i];
+            bool ok = (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || (c >= "0" && c <= "9") || c == " "
+                || c == "-" || c == "." || c == "," || c == "(" || c == ")" || c == "/";
+            if (!ok) revert BadName();
+        }
     }
 
     /// @dev Live when the incident opened, and from the generation the incident belongs to.
