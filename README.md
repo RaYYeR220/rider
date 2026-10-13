@@ -91,7 +91,8 @@ flowchart LR
 Requires Node 20+, pnpm 9 and Foundry.
 
 ```sh
-git clone --recurse-submodules https://github.com/RaYYeR220/rider && cd rider
+git clone https://github.com/RaYYeR220/rider && cd rider
+git submodule update --init   # forge-std and OpenZeppelin; their own nested submodules are not needed
 pnpm install
 pnpm --filter @rider/sdk build
 
