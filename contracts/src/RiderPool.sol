@@ -44,16 +44,23 @@ contract RiderPool is ERC4626, Ownable2Step, ReentrancyGuardTransient {
     uint256 private constant REQUEST_ID = 0;
 
     uint256 public immutable cooldown;
+    /// @notice How long a market added after underwriters have joined must wait before it can sell.
+    ///         Longer than `cooldown`, so an underwriter who objects to a new risk can leave first.
+    uint256 public immutable marketDelay;
+    /// @notice If set, the only address allowed to deposit. The drill pool is fenced this way because
+    ///         its markets are broken on purpose.
+    address public immutable restrictedDepositor;
     address public registrar;
 
     address[] internal _markets;
     mapping(address market => bool) public isMarket;
     mapping(address market => bool) public salesPaused;
+    mapping(address market => uint256) public activeFrom;
     mapping(address controller => Request) internal _requests;
     mapping(address controller => mapping(address operator => bool)) public isOperator;
 
     event RegistrarSet(address registrar);
-    event MarketAdded(address indexed market);
+    event MarketAdded(address indexed market, uint256 activeFrom);
     event SalesPausedSet(address indexed market, bool paused);
     event Payout(address indexed market, address indexed to, uint256 amount);
     event OperatorSet(address indexed controller, address indexed operator, bool approved);
@@ -71,13 +78,22 @@ contract RiderPool is ERC4626, Ownable2Step, ReentrancyGuardTransient {
     error NotClaimable(uint256 requested, uint256 claimable);
     error ExceedsFreeAssets(uint256 assets, uint256 free);
     error AsyncRedeem();
+    error ZeroAddress();
+    error DepositorNotAllowed(address depositor);
 
-    constructor(IERC20 asset_, string memory name_, string memory symbol_, uint256 cooldown_, address owner_)
-        ERC20(name_, symbol_)
-        ERC4626(asset_)
-        Ownable(owner_)
-    {
+    constructor(
+        IERC20 asset_,
+        string memory name_,
+        string memory symbol_,
+        uint256 cooldown_,
+        uint256 marketDelay_,
+        address restrictedDepositor_,
+        address owner_
+    ) ERC20(name_, symbol_) ERC4626(asset_) Ownable(owner_) {
+        require(marketDelay_ > cooldown_, "market delay must exceed cooldown");
         cooldown = cooldown_;
+        marketDelay = marketDelay_;
+        restrictedDepositor = restrictedDepositor_;
     }
 
     // ─────────────────────────────────────────────────────────────── wiring
@@ -85,6 +101,7 @@ contract RiderPool is ERC4626, Ownable2Step, ReentrancyGuardTransient {
     /// @notice One-time wiring of the factory allowed to register markets.
     function setRegistrar(address registrar_) external onlyOwner {
         if (registrar != address(0)) revert RegistrarAlreadySet();
+        if (registrar_ == address(0)) revert ZeroAddress();
         registrar = registrar_;
         emit RegistrarSet(registrar_);
     }
@@ -94,7 +111,16 @@ contract RiderPool is ERC4626, Ownable2Step, ReentrancyGuardTransient {
         if (_markets.length >= MAX_MARKETS) revert TooManyMarkets();
         _markets.push(market);
         isMarket[market] = true;
-        emit MarketAdded(market);
+        // Before anyone has underwritten, there is nobody to warn. After that, a new risk waits long
+        // enough for any underwriter to request an exit and leave before it can sell a policy.
+        uint256 from = totalSupply() == 0 ? block.timestamp : block.timestamp + marketDelay;
+        activeFrom[market] = from;
+        emit MarketAdded(market, from);
+    }
+
+    /// @notice Whether `market` may sell new cover right now.
+    function salesOpen(address market) external view returns (bool) {
+        return isMarket[market] && !salesPaused[market] && block.timestamp >= activeFrom[market];
     }
 
     /// @notice Stop or resume new cover in one market. Existing policies and claims are unaffected.
@@ -136,7 +162,7 @@ contract RiderPool is ERC4626, Ownable2Step, ReentrancyGuardTransient {
         return assets > locked ? assets - locked : 0;
     }
 
-    /// @notice True while any market has an incident pending or a claim window open.
+    /// @notice True while any market is firing, has an incident pending, or has a claim window open.
     function frozen() public view returns (bool) {
         for (uint256 i; i < _markets.length; ++i) {
             if (IRiderMarket(_markets[i]).isFrozen()) return true;
@@ -159,11 +185,17 @@ contract RiderPool is ERC4626, Ownable2Step, ReentrancyGuardTransient {
     }
 
     function deposit(uint256 assets, address receiver) public override nonReentrant returns (uint256) {
+        _checkDepositor();
         return super.deposit(assets, receiver);
     }
 
     function mint(uint256 shares, address receiver) public override nonReentrant returns (uint256) {
+        _checkDepositor();
         return super.mint(shares, receiver);
+    }
+
+    function _checkDepositor() private view {
+        if (restrictedDepositor != address(0) && msg.sender != restrictedDepositor) revert DepositorNotAllowed(msg.sender);
     }
 
     // ─────────────────────────────────────────────────────────────── redemptions (ERC-7540, async)
@@ -177,6 +209,9 @@ contract RiderPool is ERC4626, Ownable2Step, ReentrancyGuardTransient {
         returns (uint256 requestId)
     {
         if (shares == 0) revert ZeroShares();
+        // Only the controller (or its operator) may add to its request: otherwise anyone could restart
+        // someone else's cooldown with one share-wei, forever.
+        if (controller != msg.sender && !isOperator[controller][msg.sender]) revert NotAuthorized();
         if (owner != msg.sender && !isOperator[owner][msg.sender]) {
             _spendAllowance(owner, msg.sender, shares);
         }
