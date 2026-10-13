@@ -10,6 +10,10 @@ import {IRiderTrigger} from "../interfaces/IRiderTrigger.sol";
 ///      peg is the cross rate, which is how a non-dollar stablecoin is checked against its own
 ///      currency: (EURC / USD) / (EUR / USD) = EURC per euro. A stale, future-dated or non-positive
 ///      round makes the reading unusable rather than healthy.
+///
+///      Each policy records the ratio at purchase (capped at the peg), and is paid for the slide from
+///      there. Cover bought while the coin already trades a little below peg pays only for further
+///      losses, not for the discount the buyer could already see.
 contract PegTrigger is IRiderTrigger {
     uint256 private constant ONE = 1e18;
 
@@ -30,24 +34,32 @@ contract PegTrigger is IRiderTrigger {
         _pegScale = address(peg_) == address(0) ? 0 : 10 ** peg_.decimals();
     }
 
-    function referenceValue() external pure returns (uint256) {
-        return ONE;
+    error ReadingUnavailable();
+
+    function referenceValue() external view returns (uint256) {
+        (bool ok, uint256 ratio) = _ratio();
+        if (!ok) revert ReadingUnavailable();
+        return ratio < ONE ? ratio : ONE;
     }
 
-    function read(uint256) external view returns (bool ok, uint256 lossBps, uint256 observed) {
+    function read(uint256 ref) external view returns (bool ok, uint256 lossBps, uint256 observed) {
+        (bool okRatio, uint256 ratio) = _ratio();
+        if (!okRatio) return (false, 0, 0);
+        return (true, _loss(ref, ratio), ratio);
+    }
+
+    function lossOf(uint256 ref, uint256 observed) external pure returns (uint256) {
+        return _loss(ref, observed);
+    }
+
+    /// @dev Token price in peg units, 1e18 = on peg.
+    function _ratio() private view returns (bool, uint256) {
         (bool okToken, uint256 tokenPrice) = _price(token, _tokenScale);
-        if (!okToken) return (false, 0, 0);
-        uint256 ratio = tokenPrice;
-        if (address(peg) != address(0)) {
-            (bool okPeg, uint256 pegPrice) = _price(peg, _pegScale);
-            if (!okPeg) return (false, 0, 0);
-            ratio = tokenPrice * ONE / pegPrice;
-        }
-        return (true, _loss(ratio), ratio);
-    }
-
-    function lossOf(uint256, uint256 observed) external pure returns (uint256) {
-        return _loss(observed);
+        if (!okToken) return (false, 0);
+        if (address(peg) == address(0)) return (true, tokenPrice);
+        (bool okPeg, uint256 pegPrice) = _price(peg, _pegScale);
+        if (!okPeg) return (false, 0);
+        return (true, tokenPrice * ONE / pegPrice);
     }
 
     function kind() external pure returns (string memory) {
@@ -69,8 +81,10 @@ contract PegTrigger is IRiderTrigger {
         }
     }
 
-    function _loss(uint256 ratio) private pure returns (uint256) {
-        if (ratio >= ONE) return 0;
-        return (ONE - ratio) * 10_000 / ONE;
+    /// @dev Loss from `ref` (at most the peg) to `ratio`.
+    function _loss(uint256 ref, uint256 ratio) private pure returns (uint256) {
+        if (ref == 0 || ref > ONE) ref = ONE;
+        if (ratio >= ref) return 0;
+        return (ref - ratio) * 10_000 / ref;
     }
 }

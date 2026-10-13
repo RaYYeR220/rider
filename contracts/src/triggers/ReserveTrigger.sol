@@ -9,6 +9,8 @@ import {IRiderTrigger} from "../interfaces/IRiderTrigger.sol";
 /// @notice Compares a Proof-of-Reserve feed with the supply of the token it is meant to back.
 /// @dev On Arc this watches cirBTC: the "cirBTC Reserves" Chainlink feed against cirBTC
 ///      totalSupply(). Backing below 100% is a loss for every holder in proportion to the shortfall.
+///      Like PegTrigger, each policy is paid for the fall from its own purchase-time backing (capped
+///      at 100%). A zero reserve answer is treated as a feed fault, not as an empty reserve.
 contract ReserveTrigger is IRiderTrigger {
     uint256 private constant ONE = 1e18;
 
@@ -26,33 +28,43 @@ contract ReserveTrigger is IRiderTrigger {
         _tokenScale = 10 ** token_.decimals();
     }
 
-    function referenceValue() external pure returns (uint256) {
-        return ONE;
+    error ReadingUnavailable();
+
+    function referenceValue() external view returns (uint256) {
+        (bool ok, uint256 backing) = _backing();
+        if (!ok) revert ReadingUnavailable();
+        return backing < ONE ? backing : ONE;
     }
 
-    function read(uint256) external view returns (bool ok, uint256 lossBps, uint256 observed) {
+    function read(uint256 ref) external view returns (bool ok, uint256 lossBps, uint256 observed) {
+        (bool okBacking, uint256 backing) = _backing();
+        if (!okBacking) return (false, 0, 0);
+        return (true, _loss(ref, backing), backing);
+    }
+
+    function lossOf(uint256 ref, uint256 observed) external pure returns (uint256) {
+        return _loss(ref, observed);
+    }
+
+    /// @dev Reserves per unit of supply, 1e18 = fully backed.
+    function _backing() private view returns (bool, uint256) {
         uint256 reserve;
         try reserves.latestRoundData() returns (uint80, int256 answer, uint256, uint256 updatedAt, uint80) {
-            if (answer < 0 || updatedAt == 0 || updatedAt > block.timestamp) return (false, 0, 0);
-            if (block.timestamp - updatedAt > maxAge) return (false, 0, 0);
+            if (answer <= 0 || updatedAt == 0 || updatedAt > block.timestamp) return (false, 0);
+            if (block.timestamp - updatedAt > maxAge) return (false, 0);
             reserve = uint256(answer);
         } catch {
-            return (false, 0, 0);
+            return (false, 0);
         }
         uint256 supply;
         try token.totalSupply() returns (uint256 s) {
             supply = s;
         } catch {
-            return (false, 0, 0);
+            return (false, 0);
         }
         // Nothing issued means nothing to back.
-        if (supply == 0) return (true, 0, type(uint256).max);
-        uint256 backing = reserve * _tokenScale * ONE / (supply * _feedScale);
-        return (true, _loss(backing), backing);
-    }
-
-    function lossOf(uint256, uint256 observed) external pure returns (uint256) {
-        return _loss(observed);
+        if (supply == 0) return (true, type(uint256).max);
+        return (true, reserve * _tokenScale * ONE / (supply * _feedScale));
     }
 
     function kind() external pure returns (string memory) {
@@ -63,8 +75,9 @@ contract ReserveTrigger is IRiderTrigger {
         return address(token);
     }
 
-    function _loss(uint256 backing) private pure returns (uint256) {
-        if (backing >= ONE) return 0;
-        return (ONE - backing) * 10_000 / ONE;
+    function _loss(uint256 ref, uint256 backing) private pure returns (uint256) {
+        if (ref == 0 || ref > ONE) ref = ONE;
+        if (backing >= ref) return 0;
+        return (ref - backing) * 10_000 / ref;
     }
 }

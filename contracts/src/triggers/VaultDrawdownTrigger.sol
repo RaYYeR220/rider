@@ -24,7 +24,14 @@ contract VaultDrawdownTrigger is IRiderTrigger {
 
     function read(uint256 ref) external view returns (bool ok, uint256 lossBps, uint256 observed) {
         try vault.convertToAssets(unit) returns (uint256 price) {
-            if (price == 0) return (false, 0, 0);
+            if (price == 0) {
+                // Shares outstanding but worth nothing is a total loss, the case cover exists for.
+                try vault.totalSupply() returns (uint256 supply) {
+                    return supply > 0 ? (true, 10_000, 0) : (false, 0, 0);
+                } catch {
+                    return (false, 0, 0);
+                }
+            }
             return (true, _loss(ref, price), price);
         } catch {
             return (false, 0, 0);
