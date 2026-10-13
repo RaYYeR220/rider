@@ -83,7 +83,7 @@ async function tick() {
       continue;
     }
     try {
-      // Simulate first: the contract is the judge, the keeper only proposes.
+      // Simulate first: the contract decides, the keeper only proposes.
       await client.call({ account: walletClient.account, to: address, data: action.data });
       const hash = await walletClient.sendTransaction({ to: address, data: action.data });
       const receipt = await client.waitForTransactionReceipt({ hash });
