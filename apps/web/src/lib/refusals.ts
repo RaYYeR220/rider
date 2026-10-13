@@ -1,7 +1,12 @@
 import { BaseError, decodeErrorResult, erc20Abi, type Hex } from "viem";
 import { canaryVaultAbi, formatBps, formatUsdc, riderMarketAbi, riderPoolAbi } from "@rider/sdk";
 
-const ERRORS = [...riderMarketAbi, ...riderPoolAbi, ...canaryVaultAbi, ...erc20Abi].filter((x) => x.type === "error");
+/** Errors raised by contracts Rider calls into: Morpho Vault V2 on a failed pull of USDC. */
+const EXTERNAL_ERRORS = [{ type: "error", name: "TransferFromReverted", inputs: [] }] as const;
+
+const ERRORS = [...riderMarketAbi, ...riderPoolAbi, ...canaryVaultAbi, ...erc20Abi, ...EXTERNAL_ERRORS].filter(
+  (x) => x.type === "error",
+);
 
 export interface Refusal {
   /** Custom error name, e.g. "CapacityExceeded". */
@@ -63,6 +68,14 @@ function explain(name: string, args: readonly unknown[]): string {
       return "This pool only accepts deposits from its operator.";
     case "ERC4626ExceededMaxDeposit":
       return "Deposits are closed right now (a trigger is firing or an incident is open).";
+    case "TransferFromReverted":
+      return "The vault could not pull the USDC: check the wallet's balance and approval.";
+    case "Error": {
+      const reason = String(args[0] ?? "");
+      if (/exceeds balance/i.test(reason)) return "Not enough USDC in this wallet.";
+      if (/exceeds allowance/i.test(reason)) return "The USDC approval is too small.";
+      return reason || "The contract refused this transaction.";
+    }
     case "ERC20InsufficientBalance":
       return "Not enough USDC in this wallet.";
     case "ERC20InsufficientAllowance":
