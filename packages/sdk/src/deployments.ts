@@ -2,7 +2,7 @@ import type { Deployment } from "./addresses.js";
 
 /** Rider on Arc mainnet, synced from contracts/deployments/arc-mainnet.json. */
 export const arcMainnet: Deployment = {
-  block: 25797861,
+  block: 25802978,
   canary: "0x94981CddA8EFD8Aef008DfD8aF650B938613fc44",
   canaryMarket: "0x0A223bf13D5FFcA9F056af57169D88fAa34058fB",
   chainId: 5042,
