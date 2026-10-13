@@ -46,14 +46,23 @@ class DrillFailure extends Error {
     message: string,
     readonly detail?: string,
     readonly status?: number,
+    readonly transient = false,
   ) {
     super(message);
   }
 }
 
+/** A 5xx the route marked as retryable, or one from the platform rather than the route. */
+function isTransient(status: number, body: unknown) {
+  return status >= 500 && (status !== 503 || (typeof body === "object" && body !== null && "retry" in body));
+}
+
 async function fetchPlan(): Promise<DrillPlanJson> {
   const res = await fetch("/api/drill", { cache: "no-store" });
-  if (!res.ok) throw new DrillFailure(`The drill state could not be read (HTTP ${res.status}).`, undefined, res.status);
+  if (!res.ok) {
+    const body = (await res.json().catch(() => undefined)) as { detail?: string } | undefined;
+    throw new DrillFailure(`The drill state could not be read (HTTP ${res.status}).`, body?.detail, res.status, isTransient(res.status, body));
+  }
   return res.json();
 }
 
@@ -153,13 +162,26 @@ export function DrillRunner() {
     let sawClaim = false;
     let rearms = 0;
     let retries = 0;
+    let misreads = 0;
     let finished = false;
     let lastWait: { step: DrillStep; readyAt: number; id: number } | undefined;
 
     try {
       while (!signal.aborted) {
         setActivity({ kind: "reading" });
-        const next = await fetchPlan();
+        let next: DrillPlanJson;
+        try {
+          next = await fetchPlan();
+          misreads = 0;
+        } catch (e) {
+          // A read that failed changed nothing on-chain, so it is always safe to read again.
+          if (e instanceof DrillFailure && e.transient && misreads < 3) {
+            misreads++;
+            await sleep(2_000 * misreads, signal);
+            continue;
+          }
+          throw e;
+        }
         setLoopPlan(next);
         if (next.step === "unavailable") throw new DrillFailure(next.note);
 
@@ -192,9 +214,14 @@ export function DrillRunner() {
           const error = body.error ?? `The step was refused (HTTP ${res.status}).`;
           // Someone else moved the drill on at the same moment: read the chain again and carry on.
           const raced = res.status === 409 || (res.status === 429 && /already being sent/i.test(error));
-          if (raced && retries < 3) {
+          // The server could not read the chain; the next read decides whether the step still applies.
+          const transient = isTransient(res.status, body);
+          if ((raced || transient) && retries < 3) {
             retries++;
-            append({ step: next.step, note: "Another visitor moved the drill at the same moment. Reading the chain again.", info: true });
+            const note = raced
+              ? "Another visitor moved the drill at the same moment. Reading the chain again."
+              : "The chain did not answer cleanly. Reading it again.";
+            append({ step: next.step, note, info: true });
             await sleep(2_500, signal);
             continue;
           }

@@ -22,8 +22,13 @@ let busy = false;
 export async function GET() {
   await connection();
   if (!isAddress(HOLDER)) return json({ step: "unavailable", note: "The drill is not configured on this deployment." });
-  const plan = await planDrill(publicClient, deployment, HOLDER);
-  return json({ ...plan, holder: HOLDER, rounds: await roundsToday(), dailyLimit: DAILY_ROUNDS });
+  try {
+    const plan = await planDrill(publicClient, deployment, HOLDER);
+    return json({ ...plan, holder: HOLDER, rounds: await roundsToday(), dailyLimit: DAILY_ROUNDS });
+  } catch (e) {
+    const detail = (e as Error).message.split("\n")[0];
+    return json({ error: "The chain could not be read just now. Try again.", detail, retry: true }, { status: 503 });
+  }
 }
 
 export async function POST() {
@@ -35,6 +40,10 @@ export async function POST() {
   lastAttempt = Date.now();
   try {
     return await step(wallet);
+  } catch (e) {
+    // Reading the chain failed before anything was sent; nothing is half done, so the caller can retry.
+    const detail = (e as Error).message.split("\n")[0];
+    return json({ error: "The chain could not be read just now. Try again.", detail, retry: true }, { status: 503 });
   } finally {
     busy = false;
   }
