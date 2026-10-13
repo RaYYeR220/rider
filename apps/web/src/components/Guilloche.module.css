@@ -1,0 +1,107 @@
+.root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.base,
+.fluo svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.base path {
+  fill: none;
+  stroke: var(--guil);
+  stroke-width: 0.6;
+}
+
+.base :global(.field) path {
+  stroke-opacity: 0.07;
+}
+
+.base :global(.band) path {
+  stroke-opacity: 0.19;
+}
+
+.glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle calc(var(--lamp) * 1.5) at var(--lx) var(--ly),
+    rgba(132, 96, 255, 0.2),
+    rgba(132, 96, 255, 0.06) 45%,
+    transparent 72%
+  );
+}
+
+.fluo {
+  position: absolute;
+  inset: 0;
+  mask-image: radial-gradient(circle var(--lamp) at var(--lx) var(--ly), #000 0, rgba(0, 0, 0, 0.85) 38%, transparent 100%);
+}
+
+.fluo path {
+  fill: none;
+  stroke: var(--fluo);
+  stroke-width: 0.7;
+}
+
+.fluo :global(.field) path {
+  stroke-opacity: 0.42;
+}
+
+.fluo :global(.band) path {
+  stroke-opacity: 0.9;
+}
+
+.fluo :global(.fibres) path {
+  stroke-width: 1.1;
+  stroke-linecap: round;
+  stroke-opacity: 0.9;
+}
+
+.fluo :global(.fibres) path.lilac {
+  stroke: var(--fibre);
+}
+
+.rows {
+  position: absolute;
+  inset: 0;
+}
+
+.row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  font: 500 7px/1 var(--font-mono);
+  letter-spacing: 0.18em;
+  color: var(--fluo);
+  opacity: 0.95;
+}
+
+.root path {
+  opacity: 0;
+}
+
+.ready path {
+  animation: line-in 0.9s var(--ease) forwards;
+}
+
+@keyframes line-in {
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .root path {
+    opacity: 1;
+    animation: none;
+  }
+}

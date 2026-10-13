@@ -13,3 +13,12 @@ writeFileSync(
   `import type { Deployment } from "./addresses.js";\n\n/** Rider on Arc mainnet, synced from contracts/deployments/${network}.json. */\nexport const arcMainnet: Deployment = {\n${body}\n};\n`,
 );
 console.log(`synced ${network} into packages/sdk/src/deployments.ts`);
+
+// The web app shows the proof ledger; keep a copy next to it so it ships with the build.
+import { mkdirSync, existsSync } from "node:fs";
+const ledger = path(`../proof/${network}.json`);
+if (existsSync(ledger)) {
+  mkdirSync(path("../apps/web/src/data"), { recursive: true });
+  writeFileSync(path(`../apps/web/src/data/proof.json`), readFileSync(ledger, "utf8"));
+  console.log("copied proof ledger into apps/web/src/data/proof.json");
+}

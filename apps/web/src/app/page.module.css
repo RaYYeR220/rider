@@ -1,0 +1,309 @@
+.hero {
+  position: relative;
+  z-index: 10;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 120px 40px 96px;
+}
+
+.hero > :global(.micro) {
+  width: min(560px, 80vw);
+}
+
+.hero > :global(.micro):first-child {
+  margin-bottom: var(--s6);
+}
+
+.claim {
+  font-size: clamp(44px, 6.2vw, 96px);
+  max-width: 1280px;
+  font-variation-settings: "opsz" 96;
+}
+
+.claim span {
+  display: block;
+}
+
+.sub {
+  margin-top: var(--s5);
+  max-width: 620px;
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--text-1);
+}
+
+.ctas {
+  margin-top: var(--s5);
+  margin-bottom: var(--s6);
+  display: flex;
+  gap: 28px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.ctas :global(.btn) {
+  height: 52px;
+  padding: 0 30px;
+  font-size: 16px;
+}
+
+.hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 44px;
+  font: 400 10px/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  color: var(--text-2);
+}
+
+.hint b {
+  font-weight: 500;
+  color: var(--fluo);
+}
+
+.body {
+  position: relative;
+  z-index: 10;
+  width: min(var(--page), calc(100% - 64px));
+  margin: 0 auto;
+  display: grid;
+  gap: 140px;
+  padding: 80px 0 140px;
+}
+
+/* how */
+.how {
+  display: grid;
+  gap: 18px;
+}
+
+.how h2 {
+  max-width: 16ch;
+}
+
+.steps {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--line-2);
+  margin-top: 40px;
+}
+
+.steps li {
+  padding: 28px 28px 8px 0;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.steps li + li {
+  padding-left: 28px;
+  border-left: 1px solid var(--line);
+}
+
+.steps h3 {
+  font: 500 22px/1.15 var(--font-display);
+  letter-spacing: -0.015em;
+}
+
+.steps p {
+  color: var(--text-1);
+  font-size: 14.5px;
+}
+
+.num {
+  font: 500 11px/1 var(--font-mono);
+  letter-spacing: 0.2em;
+  color: var(--fluo);
+}
+
+/* markets */
+.markets {
+  display: grid;
+  gap: 40px;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.sectionHead h2 {
+  margin-top: 14px;
+  max-width: 18ch;
+}
+
+.notes {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.note {
+  display: grid;
+  gap: 18px;
+}
+
+.noteHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 12px;
+}
+
+.reading {
+  font-size: 13px;
+  color: var(--text-1);
+  margin-top: -8px;
+}
+
+/* refusals */
+.refusals {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 48px;
+  align-items: start;
+}
+
+.refusals h2 {
+  margin: 14px 0 20px;
+}
+
+.proofLinks {
+  display: grid;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.proofLinks a {
+  text-decoration: none;
+}
+
+.refusalList {
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.refusalList a {
+  display: grid;
+  gap: 4px;
+  text-decoration: none;
+  transition: border-color 0.2s;
+}
+
+.refusalList a:hover {
+  border-color: var(--alarm);
+}
+
+.refusalList span {
+  color: var(--text-0);
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+
+.refusalList code {
+  font: 500 11.5px var(--font-mono);
+  color: var(--alarm);
+  word-break: break-all;
+}
+
+/* arc */
+.arc {
+  display: grid;
+  gap: 28px;
+}
+
+.arcGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 1px solid var(--line-2);
+}
+
+.arcGrid > div {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 26px 24px 0 0;
+}
+
+.arcGrid > div + div {
+  padding-left: 24px;
+  border-left: 1px solid var(--line);
+}
+
+.arcGrid p {
+  font-size: 14px;
+}
+
+/* close */
+.close {
+  text-align: center;
+  display: grid;
+  justify-items: center;
+}
+
+.close h2 {
+  font-size: clamp(38px, 5.4vw, 80px);
+  max-width: 16ch;
+}
+
+@media (max-width: 900px) {
+  .steps,
+  .arcGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .steps li + li,
+  .arcGrid > div + div {
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .notes,
+  .refusals {
+    grid-template-columns: 1fr;
+  }
+
+  .body {
+    gap: 96px;
+  }
+}
+
+@media (max-width: 720px) {
+  .hero {
+    padding: 140px 16px 96px;
+  }
+
+  .claim {
+    font-size: 42px;
+    line-height: 1.02;
+  }
+
+  .sub {
+    font-size: 16px;
+  }
+
+  .ctas {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .hint {
+    display: none;
+  }
+
+  .body {
+    width: calc(100% - 32px);
+  }
+}

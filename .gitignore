@@ -26,3 +26,4 @@ coverage/
 contracts/deployments/arc-fork.json
 proof/arc-fork.json
 contracts/broadcast/
+tsconfig.tsbuildinfo
