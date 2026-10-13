@@ -54,6 +54,7 @@ contract RiderMarket is IRiderMarket, ReentrancyGuardTransient {
         uint32 maxDuration;
         uint128 minCoverage;
         uint128 maxCoverage;
+        address restrictedBuyer; // address(0) = open to anyone; set for markets whose trigger the operator controls
     }
 
     struct Policy {
@@ -96,6 +97,9 @@ contract RiderMarket is IRiderMarket, ReentrancyGuardTransient {
     uint256 public immutable maxDuration;
     uint256 public immutable minCoverage;
     uint256 public immutable maxCoverage;
+    /// @notice If set, the only address allowed to buy cover. Used for the drill market, whose trigger
+    ///         Rider controls: an open drill market would pay anyone who bought just before a scheduled drill.
+    address public immutable restrictedBuyer;
     string public name;
 
     Status public status;
@@ -142,6 +146,7 @@ contract RiderMarket is IRiderMarket, ReentrancyGuardTransient {
     error AlreadyClaimed(uint256 policyId);
     error UnknownPolicy(uint256 policyId);
     error ZeroHolder();
+    error BuyerNotAllowed(address buyer);
 
     constructor(IRiderPool pool_, RiderPolicy policyNft_, Params memory p) {
         require(p.thresholdBps > 0 && p.thresholdBps <= BPS, "threshold");
@@ -164,6 +169,7 @@ contract RiderMarket is IRiderMarket, ReentrancyGuardTransient {
         maxDuration = p.maxDuration;
         minCoverage = p.minCoverage;
         maxCoverage = p.maxCoverage;
+        restrictedBuyer = p.restrictedBuyer;
 
         refHigh = p.trigger.referenceValue();
         _books[0].start(_epoch(block.timestamp));
@@ -223,6 +229,7 @@ contract RiderMarket is IRiderMarket, ReentrancyGuardTransient {
         if (pool.salesPaused(address(this))) revert SalesPaused();
         if (duration < minDuration || duration > maxDuration) revert DurationOutOfRange(duration);
         if (coverage < minCoverage) revert CoverageBelowMinimum(coverage);
+        if (restrictedBuyer != address(0) && msg.sender != restrictedBuyer) revert BuyerNotAllowed(msg.sender);
         // No cover on a burning house, and no cover on a risk we cannot read.
         (bool ok, uint256 loss,) = trigger.read(refHigh);
         if (!ok) revert TriggerUnavailable();

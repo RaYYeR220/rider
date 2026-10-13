@@ -152,6 +152,25 @@ contract RiderMarketTest is Fixture {
         vm.stopPrank();
     }
 
+    function test_refuse_restrictedBuyer() public {
+        RiderMarket.Params memory p = _params(vaultMarket.trigger(), "Drill", 500);
+        p.restrictedBuyer = keeper;
+        vm.prank(owner);
+        RiderMarket drill = factory.createMarket(pool, p);
+        vm.startPrank(alice);
+        usdc.approve(address(drill), type(uint256).max);
+        vm.expectRevert(abi.encodeWithSelector(RiderMarket.BuyerNotAllowed.selector, alice));
+        drill.buyCover(1_000e6, 30 days, alice, type(uint256).max);
+        vm.stopPrank();
+        // The buyer is restricted; the holder is not.
+        usdc.mint(keeper, 100e6);
+        vm.startPrank(keeper);
+        usdc.approve(address(drill), type(uint256).max);
+        uint256 id = drill.buyCover(1_000e6, 30 days, alice, type(uint256).max);
+        vm.stopPrank();
+        assertEq(policy.ownerOf(id), alice);
+    }
+
     function test_refuse_incidentOnHealthyReading() public {
         vm.expectRevert(abi.encodeWithSelector(RiderMarket.NotFiring.selector, 0));
         vaultMarket.openIncident();

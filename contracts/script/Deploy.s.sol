@@ -121,7 +121,8 @@ contract Deploy is Script {
                     minDuration: 5 minutes,
                     maxDuration: 60 minutes,
                     minCoverage: 0.01e6,
-                    maxCoverage: 5e6
+                    maxCoverage: 5e6,
+                    restrictedBuyer: drillOperator
                 })
             )
         );
@@ -148,7 +149,8 @@ contract Deploy is Script {
             minDuration: 1 days,
             maxDuration: 90 days,
             minCoverage: 0.1e6,
-            maxCoverage: 1_000_000e6
+            maxCoverage: 1_000_000e6,
+            restrictedBuyer: address(0)
         });
     }
 

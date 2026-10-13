@@ -141,7 +141,8 @@ abstract contract Fixture is Test {
             minDuration: 1 days,
             maxDuration: 90 days,
             minCoverage: 1e6,
-            maxCoverage: 1_000_000e6
+            maxCoverage: 1_000_000e6,
+            restrictedBuyer: address(0)
         });
     }
 
