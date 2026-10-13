@@ -97,19 +97,6 @@ export function Guilloche({ lamp = false, readings = "", bands = [0.17, 0.87] }:
         fibres.push(p);
       }
       fluo.current.querySelector(".fibres")?.replaceChildren(...fibres);
-      if (rows.current) {
-        const line = `${readings}   `;
-        const els: HTMLDivElement[] = [];
-        for (let r = 0; r < Math.ceil(H / 46); r++) {
-          const dv = document.createElement("div");
-          dv.className = styles.row;
-          dv.style.top = `${22 + r * 46}px`;
-          dv.style.textIndent = `${-((r * 137) % 600)}px`;
-          dv.textContent = line.repeat(6);
-          els.push(dv);
-        }
-        rows.current.replaceChildren(...els);
-      }
       root.current?.style.setProperty("--lamp", `${mob ? 160 : 260}px`);
     };
 
@@ -157,7 +144,29 @@ export function Guilloche({ lamp = false, readings = "", bands = [0.17, 0.87] }:
       window.removeEventListener("pointerdown", onPointer);
       cancelAnimationFrame(frame);
     };
-  }, [lamp, readings, bandTop, bandBottom]);
+  }, [lamp, bandTop, bandBottom]);
+
+  // The UV microtext changes with the live readings; redraw only the text, never the linework.
+  useEffect(() => {
+    if (!lamp) return;
+    const render = () => {
+      if (!rows.current) return;
+      const line = `${readings}   `;
+      const els: HTMLDivElement[] = [];
+      for (let r = 0; r < Math.ceil(window.innerHeight / 46); r++) {
+        const dv = document.createElement("div");
+        dv.className = styles.row;
+        dv.style.top = `${22 + r * 46}px`;
+        dv.style.textIndent = `${-((r * 137) % 600)}px`;
+        dv.textContent = line.repeat(6);
+        els.push(dv);
+      }
+      rows.current.replaceChildren(...els);
+    };
+    render();
+    window.addEventListener("resize", render);
+    return () => window.removeEventListener("resize", render);
+  }, [lamp, readings]);
 
   return (
     <div ref={root} className={styles.root} aria-hidden>

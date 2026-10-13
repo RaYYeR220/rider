@@ -12,6 +12,7 @@ const LINKS = [
   { href: "/policies", label: "Policies" },
   { href: "/drill", label: "Live drill" },
   { href: "/proof", label: "Proof" },
+  { href: "/build", label: "Build" },
 ];
 
 export function Nav() {

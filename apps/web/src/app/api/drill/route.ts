@@ -23,7 +23,7 @@ export async function GET() {
   await connection();
   if (!isAddress(HOLDER)) return json({ step: "unavailable", note: "The drill is not configured on this deployment." });
   const plan = await planDrill(publicClient, deployment, HOLDER);
-  return json({ ...plan, holder: HOLDER, rounds: await roundsToday() });
+  return json({ ...plan, holder: HOLDER, rounds: await roundsToday(), dailyLimit: DAILY_ROUNDS });
 }
 
 export async function POST() {

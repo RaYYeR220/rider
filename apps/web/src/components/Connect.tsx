@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { arc } from "viem/chains";
 import { useConnect, useConnection, useConnectors, useDisconnect, useSwitchChain } from "wagmi";
 import styles from "./Connect.module.css";
+
+const noop = () => () => {};
 
 export function short(address: string) {
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
@@ -17,10 +19,10 @@ export function Connect() {
   const disconnect = useDisconnect();
   const switchChain = useSwitchChain();
   const [open, setOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  // False during server render and hydration, true afterwards: wallet state only exists in the browser.
+  const mounted = useSyncExternalStore(noop, () => true, () => false);
   const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => setMounted(true), []);
   useEffect(() => {
     const close = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);

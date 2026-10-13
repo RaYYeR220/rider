@@ -44,4 +44,4 @@ Every statement Rider makes, with the strongest evidence behind it.
 - **Small capital.** The pools hold what was needed to prove the mechanism: 1.5 USDC underwriting and 0.5 USDC in the drill pool.
 - **Incident timing is chosen by callers.** Anyone may open and resolve an incident, so the two sampling moments are picked by whoever calls; the confirmation delay and pricing at the healthier reading limit, but do not remove, that freedom.
 - **Feeds can go quiet.** Chainlink feeds on Arc have a 24-hour heartbeat. A stale feed stops sales and incidents; it does not pay. A real depeg during a feed outage would not be claimable until the feed resumes.
-- **Independent review, not an audit.** The contracts were reviewed adversarially before deployment and every finding was fixed with a regression test; no professional audit firm has reviewed them.
+- **Independent review, not an audit.** The contracts were reviewed adversarially before deployment; six of the seven high and medium findings were fixed with regression tests, and caller-chosen sampling (above) is mitigated rather than fixed. No professional audit firm has reviewed them.
