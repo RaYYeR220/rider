@@ -35,10 +35,27 @@ for (let i = 0; i < 20; i++) {
   if (paid && plan.step === "buy") break; // a full round is done
   await send(ledger, relayer, plan.tx, LABELS[plan.step] ?? plan.step);
 
-  if (withRefusals && plan.step === "impair") {
+  if (withRefusals && plan.step === "buy") {
+    // The canary is ours to break, so its market sells only to the drill runner.
     await send(
       ledger,
       holder,
+      {
+        to: d.canaryMarket,
+        data: encodeFunctionData({
+          abi: riderMarketAbi,
+          functionName: "buyCover",
+          args: [DRILL.coverage, DRILL.duration, holder.account.address, 10n ** 9n],
+        }),
+      },
+      "Refused: outsider buys cover on the drill market",
+      { expect: "reverted" },
+    );
+  }
+  if (withRefusals && plan.step === "impair") {
+    await send(
+      ledger,
+      relayer,
       {
         to: d.canaryMarket,
         data: encodeFunctionData({

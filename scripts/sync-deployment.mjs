@@ -1,0 +1,15 @@
+// Copies a Foundry deployment file into the SDK so every package reads the same addresses.
+//   node scripts/sync-deployment.mjs arc-mainnet
+import { readFileSync, writeFileSync } from "node:fs";
+
+const network = process.argv[2] ?? "arc-mainnet";
+const path = (p) => new URL(p, import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
+const d = JSON.parse(readFileSync(path(`../contracts/deployments/${network}.json`), "utf8"));
+const body = Object.entries(d)
+  .map(([k, v]) => `  ${k}: ${typeof v === "number" ? v : JSON.stringify(v)},`)
+  .join("\n");
+writeFileSync(
+  path("../packages/sdk/src/deployments.ts"),
+  `import type { Deployment } from "./addresses.js";\n\n/** Rider on Arc mainnet, synced from contracts/deployments/${network}.json. */\nexport const arcMainnet: Deployment = {\n${body}\n};\n`,
+);
+console.log(`synced ${network} into packages/sdk/src/deployments.ts`);

@@ -5,3 +5,4 @@ export * from "./client.js";
 export * from "./format.js";
 export { arc } from "viem/chains";
 export * from "./drill.js";
+export * from "./deployments.js";

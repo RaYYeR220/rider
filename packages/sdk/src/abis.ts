@@ -83,6 +83,11 @@ export const riderMarketAbi = [
             "name": "maxCoverage",
             "type": "uint128",
             "internalType": "uint128"
+          },
+          {
+            "name": "restrictedBuyer",
+            "type": "address",
+            "internalType": "address"
           }
         ]
       }
@@ -694,6 +699,19 @@ export const riderMarketAbi = [
   },
   {
     "type": "function",
+    "name": "restrictedBuyer",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "settle",
     "inputs": [],
     "outputs": [],
@@ -1020,6 +1038,17 @@ export const riderMarketAbi = [
         "name": "policyId",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "BuyerNotAllowed",
+    "inputs": [
+      {
+        "name": "buyer",
+        "type": "address",
+        "internalType": "address"
       }
     ]
   },
@@ -3517,6 +3546,11 @@ export const riderFactoryAbi = [
             "name": "maxCoverage",
             "type": "uint128",
             "internalType": "uint128"
+          },
+          {
+            "name": "restrictedBuyer",
+            "type": "address",
+            "internalType": "address"
           }
         ]
       }
