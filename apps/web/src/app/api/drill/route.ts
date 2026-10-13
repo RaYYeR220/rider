@@ -6,7 +6,7 @@ import { deployment, json, publicClient, relayer } from "@/lib/server";
 /**
  * The live drill. GET returns the next step; POST sends it from the drill relayer.
  *
- * The relayer spends real USDC on gas, so starting a new round is rate limited on-chain-derived data
+ * The relayer spends real USDC on gas, so starting a new round is rate limited by on-chain data
  * (rounds started in the last 24 hours), paused below a balance floor, and every transaction is
  * simulated before it is sent. Steps after the first are always allowed: a round that has started
  * should be able to finish.
@@ -16,8 +16,8 @@ const DAILY_ROUNDS = Number(process.env.DRILL_DAILY_ROUNDS ?? 24);
 const MIN_BALANCE = BigInt(process.env.DRILL_MIN_BALANCE ?? 150_000); // 0.15 USDC
 const MIN_GAP_MS = 1_500;
 
-let lastSent = 0;
-let inflight: Promise<unknown> | undefined;
+let lastAttempt = 0;
+let busy = false;
 
 export async function GET() {
   await connection();
@@ -29,8 +29,18 @@ export async function GET() {
 export async function POST() {
   const wallet = relayer();
   if (!wallet || !isAddress(HOLDER)) return json({ error: "The drill is read-only on this deployment." }, { status: 503 });
-  if (inflight || Date.now() - lastSent < MIN_GAP_MS) return json({ error: "A step is already being sent." }, { status: 429 });
+  // Take the lock before the first await, and throttle every attempt, not only successful ones.
+  if (busy || Date.now() - lastAttempt < MIN_GAP_MS) return json({ error: "A step is already being sent." }, { status: 429 });
+  busy = true;
+  lastAttempt = Date.now();
+  try {
+    return await step(wallet);
+  } finally {
+    busy = false;
+  }
+}
 
+async function step(wallet: NonNullable<ReturnType<typeof relayer>>) {
   const plan = await planDrill(publicClient, deployment, HOLDER);
   if (!plan.tx) return json(plan);
 
@@ -49,22 +59,18 @@ export async function POST() {
   }
 
   const tx = plan.tx;
-  const send = (async () => {
+  try {
     // Another viewer may have moved the drill on; the chain decides, so simulate first.
     await publicClient.call({ account: wallet.account, to: tx.to, data: tx.data });
-    const hash = await wallet.sendTransaction({ to: tx.to, data: tx.data });
+    // Pin the nonce: if another server instance sends the same step at the same moment, only one
+    // transaction can be accepted and the other is rejected before it costs any gas.
+    const nonce = await publicClient.getTransactionCount({ address: wallet.account.address, blockTag: "pending" });
+    const hash = await wallet.sendTransaction({ to: tx.to, data: tx.data, nonce });
     const receipt = await publicClient.waitForTransactionReceipt({ hash });
-    return { step: plan.step, note: plan.note, hash, url: explorerTx(hash), status: receipt.status, block: receipt.blockNumber };
-  })();
-  inflight = send;
-  try {
-    const result = await send;
-    lastSent = Date.now();
-    return json(result);
+    return json({ step: plan.step, note: plan.note, hash, url: explorerTx(hash), status: receipt.status, block: receipt.blockNumber });
   } catch (e) {
-    return json({ error: "The step was not accepted on-chain; refresh the drill state.", detail: (e as Error).message.split("\n")[0] }, { status: 409 });
-  } finally {
-    inflight = undefined;
+    const detail = (e as Error).message.split("\n")[0];
+    return json({ error: "The step was not accepted on-chain; refresh the drill state.", detail }, { status: 409 });
   }
 }
 
