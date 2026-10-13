@@ -1,0 +1,381 @@
+/* ───────────────────────────────────────────── board */
+
+.board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px;
+}
+
+.list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 40px;
+  margin-top: 20px;
+}
+
+.live {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font: 400 11px/1.4 var(--font-mono);
+  letter-spacing: 0.06em;
+  color: var(--text-2);
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--fluo);
+  box-shadow: 0 0 8px var(--fluo);
+  transition: opacity 0.3s;
+}
+
+.dotBusy {
+  opacity: 0.35;
+}
+
+.loading {
+  display: grid;
+  gap: 28px;
+}
+
+.skeleton {
+  min-height: 160px;
+  display: grid;
+  place-items: center;
+}
+
+.skeletonTall {
+  min-height: 520px;
+  background: repeating-linear-gradient(-45deg, rgba(155, 143, 192, 0.05) 0 6px, transparent 6px 12px);
+}
+
+/* ───────────────────────────────────────────── addresses */
+
+.addr {
+  font: 500 12px/1.4 var(--font-mono);
+  color: var(--text-1);
+  text-decoration: none;
+  border-bottom: 1px solid var(--line-2);
+  transition: color 0.2s, border-color 0.2s;
+  white-space: nowrap;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.addr:hover {
+  color: var(--fluo);
+  border-color: var(--fluo);
+}
+
+/* ───────────────────────────────────────────── pool band */
+
+.band {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px;
+  padding: 28px 32px;
+}
+
+.bandHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.bandTitle {
+  display: grid;
+  gap: 8px;
+}
+
+.bandRole {
+  font-size: 14px;
+  color: var(--text-1);
+  max-width: 60ch;
+}
+
+.figures {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid var(--line-2);
+}
+
+.figures > div {
+  display: grid;
+  gap: 10px;
+  padding: 18px 20px 0 0;
+  min-width: 0;
+}
+
+.figures > div + div {
+  padding-left: 20px;
+  border-left: 1px solid var(--line);
+}
+
+.figures dd {
+  font: 500 clamp(26px, 2.8vw, 38px) / 1 var(--font-display);
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.figures small {
+  font: 400 11px var(--font-mono);
+  letter-spacing: 0.08em;
+  color: var(--text-2);
+}
+
+.bar {
+  position: relative;
+  height: 14px;
+  border: 1px solid var(--line-2);
+  background: var(--fluo-dim);
+}
+
+.barLocked {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(-45deg, rgba(236, 232, 244, 0.32) 0 2px, transparent 2px 6px);
+  border-right: 1px solid var(--text-1);
+  transition: width 0.8s var(--ease);
+}
+
+.barLegend {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-top: -10px;
+  font: 400 11px/1.4 var(--font-mono);
+  color: var(--text-2);
+}
+
+.barLegend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  vertical-align: -1px;
+  border: 1px solid var(--line-2);
+}
+
+.keyLocked {
+  background: repeating-linear-gradient(-45deg, rgba(236, 232, 244, 0.45) 0 2px, transparent 2px 4px);
+}
+
+.keyFree {
+  background: var(--fluo-dim);
+}
+
+.why {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-1);
+  max-width: 88ch;
+}
+
+.amber {
+  color: var(--amber);
+  font-weight: 600;
+}
+
+/* ───────────────────────────────────────────── certificate */
+
+.cert {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 28px;
+  padding: 40px 44px 36px;
+}
+
+.certHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.certTitle {
+  display: grid;
+  gap: 12px;
+}
+
+.certName {
+  font: 500 clamp(34px, 4vw, 52px) / 1 var(--font-display);
+  letter-spacing: -0.03em;
+}
+
+.chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.reads {
+  margin-top: -12px;
+  font-size: 15px;
+  color: var(--text-1);
+  max-width: 72ch;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--line-2);
+}
+
+.columns > section {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  padding: 22px 24px 0 0;
+  min-width: 0;
+}
+
+.columns > section + section {
+  padding-left: 24px;
+  border-left: 1px solid var(--line);
+}
+
+.note {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.addrs {
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.addrs li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.addrs li > span {
+  font: 500 10.5px/1.3 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+/* incident */
+
+.noIncident {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+  color: var(--text-1);
+}
+
+.incident {
+  display: grid;
+  gap: 16px;
+  padding: 20px 22px;
+  border: 1px dashed var(--line-2);
+}
+
+.incidentLive {
+  border: 1px solid rgba(242, 198, 109, 0.45);
+  background: var(--amber-dim);
+}
+
+.incidentHead {
+  display: grid;
+  gap: 6px;
+}
+
+.incidentHead p {
+  font-size: 14.5px;
+  color: var(--text-0);
+}
+
+.incidentKv {
+  grid-template-columns: repeat(3, auto minmax(0, 1fr));
+  gap: 8px 18px;
+}
+
+.certFoot {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+.sales {
+  font-size: 13.5px;
+  color: var(--text-1);
+  max-width: 60ch;
+}
+
+/* ───────────────────────────────────────────── responsive */
+
+@media (max-width: 1080px) {
+  .incidentKv {
+    grid-template-columns: repeat(2, auto minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .columns {
+    grid-template-columns: 1fr;
+  }
+
+  .columns > section + section {
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    margin-top: 22px;
+  }
+
+  .figures {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .figures > div:nth-child(3) {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .figures > div:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
+    margin-top: 18px;
+  }
+}
+
+@media (max-width: 720px) {
+  .cert {
+    padding: 26px 20px 24px;
+  }
+
+  .band {
+    padding: 22px 20px;
+  }
+
+  .incident {
+    padding: 16px;
+  }
+
+  .incidentKv {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .certFoot :global(.btn) {
+    width: 100%;
+  }
+}

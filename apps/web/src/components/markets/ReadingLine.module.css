@@ -1,0 +1,129 @@
+.root {
+  --c: var(--text-0);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px;
+}
+
+.root[data-state="firing"] {
+  --c: var(--alarm);
+}
+
+.root[data-state="unavailable"] {
+  --c: var(--text-2);
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: end;
+  gap: 24px;
+}
+
+.side {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.line {
+  text-align: right;
+  justify-items: end;
+}
+
+.value {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-variant-numeric: lining-nums tabular-nums;
+  font-variation-settings: "opsz" 96;
+  letter-spacing: -0.03em;
+  line-height: 0.95;
+  color: var(--c);
+  white-space: nowrap;
+}
+
+/* the printed line is engraved, not inked: outlined numerals */
+.line .value {
+  color: transparent;
+  -webkit-text-stroke: 1px var(--text-1);
+}
+
+.unit {
+  font: 400 11px/1.4 var(--font-mono);
+  letter-spacing: 0.06em;
+  color: var(--text-2);
+}
+
+.vs {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 32px;
+}
+
+.vs::before,
+.vs::after {
+  content: "";
+  flex: 1;
+  border-left: 1px dashed var(--line-2);
+}
+
+.vs span {
+  font: italic 500 22px/1 var(--font-display);
+  color: var(--text-1);
+}
+
+.large .value {
+  font-size: clamp(44px, 6.4vw, 88px);
+}
+
+.medium .value {
+  font-size: clamp(30px, 3vw, 44px);
+}
+
+.medium .pair {
+  gap: 16px;
+}
+
+.verdict {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--text-1);
+  max-width: 70ch;
+}
+
+.root[data-state="firing"] .verdict {
+  color: var(--alarm);
+}
+
+@media (max-width: 720px) {
+  .pair {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .line {
+    text-align: left;
+    justify-items: start;
+    padding-top: 16px;
+    border-top: 1px dashed var(--line-2);
+  }
+
+  .vs {
+    display: none;
+  }
+
+  .large .value {
+    font-size: 48px;
+  }
+
+  .medium .value {
+    font-size: 40px;
+  }
+
+  .medium .pair {
+    gap: 18px;
+  }
+}
