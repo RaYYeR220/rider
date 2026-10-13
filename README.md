@@ -10,7 +10,7 @@ Live on Arc mainnet (chain 5042) · [App](https://rider-cover.vercel.app) · [Pr
 
 - **Protect a deposit in one transaction.** The depositor's wallet sends four calls through Arc's `Multicall3From`: approve, deposit into the vault, approve, buy cover. Arc's `CallFrom` precompile keeps the depositor as `msg.sender` for every call, so no router ever takes custody.
 - **Pay on proof.** Each market watches one on-chain reading against a printed line. When the line is crossed and the loss is still there after a confirmation delay, the market pays `cover × loss since purchase` to whoever holds the policy NFT. Anyone can push the payout. The money only goes to the holder.
-- **Refuse what it cannot stand behind.** The contracts refuse cover the pool cannot fully back, cover on a risk that is already firing or whose data is stale, and underwriter exits while a loss is visible. Every one of those refusals has been mined on mainnet ([PROOF.md](PROOF.md#refused-on-chain-mined-reverted-on-purpose)).
+- **Refuse what it cannot stand behind.** The contracts refuse cover the pool cannot fully back, cover on a risk that is already firing or whose data is stale, and underwriter exits while a loss is visible. Eight refusals, covering every case but stale data, have been mined on mainnet as reverted transactions ([PROOF.md](PROOF.md#refused-on-chain-mined-reverted-on-purpose)); the stale-data refusal is shown by tests.
 
 ### Live markets
 
