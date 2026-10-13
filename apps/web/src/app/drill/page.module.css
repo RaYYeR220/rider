@@ -1,0 +1,118 @@
+.honest {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 32px;
+  margin-top: 120px;
+}
+
+.honestHead {
+  display: grid;
+  gap: 14px;
+}
+
+.honestHead h2 {
+  max-width: 20ch;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid var(--line-2);
+}
+
+.grid > div {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 26px 24px 0 0;
+}
+
+.grid > div + div {
+  padding-left: 24px;
+  border-left: 1px solid var(--line);
+}
+
+.grid h3 {
+  font-size: 22px;
+}
+
+.grid p {
+  font-size: 14px;
+  color: var(--text-1);
+}
+
+.same {
+  max-width: 76ch;
+  font-size: 15px;
+  color: var(--text-1);
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.receipts {
+  display: grid;
+  gap: 16px;
+  justify-items: start;
+  margin-top: 72px;
+}
+
+.receipts ol {
+  list-style: none;
+  display: grid;
+  width: 100%;
+  border-top: 1px solid var(--line-2);
+}
+
+.receipts li {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+  color: var(--text-1);
+}
+
+.receipts li a {
+  font: 500 12px/1.4 var(--font-mono);
+  white-space: nowrap;
+}
+
+@media (max-width: 1080px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .grid > div:nth-child(3) {
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .grid > div:nth-child(n + 3) {
+    margin-top: 26px;
+    border-top: 1px solid var(--line);
+  }
+}
+
+@media (max-width: 720px) {
+  .honest {
+    margin-top: 88px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .grid > div + div {
+    padding-left: 0;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    margin-top: 22px;
+  }
+
+  .receipts li {
+    flex-direction: column;
+    gap: 4px;
+  }
+}
