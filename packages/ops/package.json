@@ -1,0 +1,23 @@
+{
+  "name": "@rider/ops",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deployment seeding, on-chain proof runs and the drill runner for Rider on Arc.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "seed": "tsx src/seed.ts",
+    "proof": "tsx src/proof.ts",
+    "drill": "tsx src/drill.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@rider/sdk": "workspace:*",
+    "viem": "2.57.5"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  }
+}

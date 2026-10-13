@@ -21,3 +21,8 @@ coverage/
 .DS_Store
 *.log
 
+
+# local fork rehearsals
+contracts/deployments/arc-fork.json
+proof/arc-fork.json
+contracts/broadcast/
