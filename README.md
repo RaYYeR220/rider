@@ -2,7 +2,7 @@
 
 **Parametric cover for USDC deposits on Arc.** You buy the cover in the same transaction as the deposit. If the vault loses value, EURC slips from the euro or cirBTC's reserves fall short, the contract reads the proof on-chain and pays the policy holder in USDC. Nobody files a claim and nobody approves it.
 
-Live on Arc mainnet (chain 5042) · [App](https://rider-cover.vercel.app) · [Proof: every contract and transaction](PROOF.md) · [What we claim, and what we don't](CLAIMS.md)
+Live on Arc mainnet (chain 5042) · [App](https://rider-cover.vercel.app) · [Demo video](https://youtu.be/o-xX4If8xBA) · [Proof: every contract and transaction](PROOF.md) · [What we claim, and what we don't](CLAIMS.md)
 
 ---
 
